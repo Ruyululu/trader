@@ -92,6 +92,37 @@ class BaseTradeStrategy(BaseModule):
         except Exception:
             return default
 
+    @staticmethod
+    def _normalize_ctp_text(text: Any) -> str:
+        if text is None:
+            return ''
+        s = str(text).strip()
+        if not s:
+            return ''
+        # 兼容 pybind 在部分柜台返回 GBK 文本时可能出现的乱码
+        try:
+            raw = s.encode('latin1')
+        except UnicodeEncodeError:
+            return s
+        for enc in ('gbk', 'gb18030'):
+            try:
+                fixed = raw.decode(enc).strip()
+            except UnicodeDecodeError:
+                continue
+            if fixed and any('\u4e00' <= ch <= '\u9fff' for ch in fixed):
+                return fixed
+        return s
+
+    @staticmethod
+    def _is_suspect_text(text: str) -> bool:
+        if not text:
+            return True
+        if '\ufffd' in text or '�' in text:
+            return True
+        if any(ch in text for ch in ('ϩ', '¾', '��')):
+            return True
+        return False
+
     # ═══════════════════════════════════════════════════════════════════
     # 启动 / 账户 / 持仓 / 合约
     # ═══════════════════════════════════════════════════════════════════
@@ -210,14 +241,23 @@ class BaseTradeStrategy(BaseModule):
             for inst in inst_list:
                 if inst['empty']:
                     continue
-                if inst['IsTrading'] == 1 and chr(inst['ProductClass']) == ApiStruct.PC_Futures:
-                    if inst['ProductID'] in self._ignore_inst_list or inst['LongMarginRatio'] > 1:
+                is_trading = inst.get('IsTrading') == 1 or str(inst.get('IsTrading')) == '1'
+                product_class = inst.get('ProductClass')
+                if isinstance(product_class, int):
+                    product_class = chr(product_class)
+                if is_trading and product_class == ApiStruct.PC_Futures:
+                    product_id = str(inst.get('ProductID', '')).strip()
+                    instrument_id = str(inst.get('InstrumentID', '')).strip()
+                    exchange_id = str(inst.get('ExchangeID', '')).strip()
+                    if not product_id or not instrument_id or not exchange_id:
                         continue
-                    inst_dict[inst['ProductID']][inst['InstrumentID']] = dict()
-                    inst_dict[inst['ProductID']][inst['InstrumentID']]['exchange'] = inst['ExchangeID']
-                    inst_dict[inst['ProductID']][inst['InstrumentID']]['name'] = inst['InstrumentName']
-                    inst_dict[inst['ProductID']][inst['InstrumentID']]['multiple'] = inst['VolumeMultiple']
-                    inst_dict[inst['ProductID']][inst['InstrumentID']]['price_tick'] = inst['PriceTick']
+                    if product_id in self._ignore_inst_list or inst['LongMarginRatio'] > 1:
+                        continue
+                    inst_dict[product_id][instrument_id] = dict()
+                    inst_dict[product_id][instrument_id]['exchange'] = exchange_id
+                    inst_dict[product_id][instrument_id]['name'] = self._normalize_ctp_text(inst.get('InstrumentName', ''))
+                    inst_dict[product_id][instrument_id]['multiple'] = inst['VolumeMultiple']
+                    inst_dict[product_id][instrument_id]['price_tick'] = inst['PriceTick']
             for code in inst_dict.keys():
                 all_inst = ','.join(sorted(inst_dict[code].keys()))
                 inst_data = list(inst_dict[code].values())[0]
@@ -230,24 +270,41 @@ class BaseTradeStrategy(BaseModule):
                     valid_name = ''
                 inst_data['name'] = valid_name
                 inst, created = Instrument.objects.update_or_create(product_code=code)
-                print(f"inst:{inst} created:{created} main_code:{inst.main_code}")
+                logger.debug(f"inst:{inst} created:{created} main_code:{inst.main_code}")
                 update_field_list = list()
                 # 更新主力合约的保证金和手续费
                 if inst.main_code:
                     margin_rate = await self.query('InstrumentMarginRate', InstrumentID=inst.main_code)
-                    inst.margin_rate = margin_rate[0]['LongMarginRatioByMoney']
+                    if margin_rate:
+                        inst.margin_rate = margin_rate[0]['LongMarginRatioByMoney']
+                        update_field_list.append('margin_rate')
+                    else:
+                        logger.debug(f'{inst} 查询保证金率为空，跳过')
                     fee = await self.query('InstrumentCommissionRate', InstrumentID=inst.main_code)
-                    inst.fee_money = Decimal(fee[0]['CloseRatioByMoney'])
-                    inst.fee_volume = Decimal(fee[0]['CloseRatioByVolume'])
-                    update_field_list += ['margin_rate', 'fee_money', 'fee_volume']
+                    if fee:
+                        inst.fee_money = Decimal(fee[0]['CloseRatioByMoney'])
+                        inst.fee_volume = Decimal(fee[0]['CloseRatioByVolume'])
+                        update_field_list += ['fee_money', 'fee_volume']
+                    else:
+                        logger.debug(f'{inst} 查询手续费为空，跳过')
                 if created:
+                    inst.exchange = inst_data['exchange']
                     inst.name = inst_data['name']
+                    inst.all_inst = all_inst
                     inst.volume_multiple = inst_data['multiple']
                     inst.price_tick = inst_data['price_tick']
-                    update_field_list += ['name', 'volume_multiple', 'price_tick']
-                elif inst.main_code:
-                    inst.all_inst = all_inst
-                    update_field_list.append('all_inst')
+                    update_field_list += ['exchange', 'name', 'all_inst', 'volume_multiple', 'price_tick']
+                else:
+                    if inst_data.get('exchange') and not inst.exchange:
+                        inst.exchange = inst_data['exchange']
+                        update_field_list.append('exchange')
+                    normalized_name = inst_data.get('name', '')
+                    if normalized_name and (not inst.name or self._is_suspect_text(inst.name)):
+                        inst.name = normalized_name
+                        update_field_list.append('name')
+                    if all_inst and (not inst.all_inst or inst.main_code):
+                        inst.all_inst = all_inst
+                        update_field_list.append('all_inst')
                 inst.save(update_fields=update_field_list)
             logger.debug("更新合约完成!")
         except Exception as e:

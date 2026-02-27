@@ -48,8 +48,7 @@ cmake --build build -j
 
 编译成功后，通常模块输出在：
 
-- Windows：`native/ctp_bridge/build/Release`
-- Linux：`native/ctp_bridge/build`
+- `native/ctp_bridge/build`
 
 ## 配置
 
@@ -57,25 +56,7 @@ cmake --build build -j
 
 - `gateway = pybind`
 - `module = ctp_bridge_native`
-- `module_path = <构建输出目录>`（例如 `native/ctp_bridge/build/Release`）
-
-### `module_path` 推荐写法（按平台）
-
-在 `config.yaml` 的 `ctp_native` 章节中可直接写为：
-
-- Windows（Release）
-
-`module_path: native/ctp_bridge/build/Release`
-
-- Windows（Debug）
-
-`module_path: native/ctp_bridge/build/Debug`
-
-- Linux（单配置生成器）
-
-`module_path: native/ctp_bridge/build`
-
-建议优先使用 Release；若你本地是 Debug 构建，请同步把 `module_path` 指到 `Debug` 目录。
+- `module_path = <构建输出目录>`（例如 `native/ctp_bridge/build`）
 
 ## 快速验证
 

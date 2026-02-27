@@ -50,7 +50,7 @@ brother3.py
 *.swo
 .cache/
 **/.cache/
-
+.clang*
 # ===== OS files =====
 .DS_Store
 Thumbs.db

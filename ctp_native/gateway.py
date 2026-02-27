@@ -77,7 +77,7 @@ class PybindGateway(NativeGateway):
             dll_dir = _resolve(runtime_config.get('CTP_NATIVE', 'dll_dir', fallback=f'{REPO_ROOT}/native/ctp_bridge/api/win').strip())
             if os.name == 'nt' and dll_dir and os.path.isdir(dll_dir):
                 os.add_dll_directory(dll_dir)
-            module_path = _resolve(runtime_config.get('CTP_NATIVE', 'module_path', fallback=f'{REPO_ROOT}/native/ctp_bridge/build/Release').strip())
+            module_path = _resolve(runtime_config.get('CTP_NATIVE', 'module_path', fallback=f'{REPO_ROOT}/native/ctp_bridge/build').strip())
             if module_path and module_path not in sys.path:
                 sys.path.insert(0, module_path)
             module_name = runtime_config.get('CTP_NATIVE', 'module', fallback='ctp_bridge_native')

@@ -25,12 +25,6 @@ import yaml
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def _default_module_path() -> str:
-    if os.name == 'nt':
-        return os.path.join(REPO_ROOT, 'native', 'ctp_bridge', 'build', 'Release').replace('\\', '/')
-    return os.path.join(REPO_ROOT, 'native', 'ctp_bridge', 'build').replace('\\', '/')
-
-
 DEFAULT_CONFIG_DATA = {
     'trade': {
         'command_timeout': 5,
@@ -41,7 +35,7 @@ DEFAULT_CONFIG_DATA = {
         'gateway': 'pybind',
         'module': 'ctp_bridge_native',
         'client_class': 'CtpClient',
-        'module_path': _default_module_path(),
+        'module_path': os.path.join(REPO_ROOT, 'native', 'ctp_bridge', 'build').replace('\\', '/'),
         'dll_dir': os.path.join(REPO_ROOT, 'native', 'ctp_bridge', 'api', 'win').replace('\\', '/'),
         'trade_front': 'tcp://xxx:xxx',
         'market_front': 'tcp://xxx:xxx',

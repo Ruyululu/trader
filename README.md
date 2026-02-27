@@ -101,12 +101,6 @@ weixin:
   Secret: ""
 ```
 
-`module_path` 常用示例：
-
-- Windows Release：`native/ctp_bridge/build/Release`
-- Windows Debug：`native/ctp_bridge/build/Debug`
-- Linux：`native/ctp_bridge/build`
-
 ### 3) 常用命令
 
 - 启动交易主程序：`python main.py`

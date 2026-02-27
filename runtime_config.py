@@ -12,18 +12,12 @@ ROOT_YAML_FILE = os.path.join(REPO_ROOT, 'config.yaml')
 ROOT_INI_FILE = os.path.join(REPO_ROOT, 'config.ini')
 
 
-def _default_module_path() -> str:
-    if os.name == 'nt':
-        return os.path.join(REPO_ROOT, 'native', 'ctp_bridge', 'build', 'Release').replace('\\', '/')
-    return os.path.join(REPO_ROOT, 'native', 'ctp_bridge', 'build').replace('\\', '/')
-
-
 _DEFAULT_RUNTIME_DATA = {
     'ctp_native': {
         'gateway': 'pybind',
         'module': 'ctp_bridge_native',
         'client_class': 'CtpClient',
-        'module_path': _default_module_path(),
+        'module_path': os.path.join(REPO_ROOT, 'native', 'ctp_bridge', 'build').replace('\\', '/'),
         'dll_dir': os.path.join(REPO_ROOT, 'native', 'ctp_bridge', 'api', 'win').replace('\\', '/'),
         'trade_front': 'tcp://180.168.146.187:10001',
         'market_front': 'tcp://180.168.146.187:10011',
